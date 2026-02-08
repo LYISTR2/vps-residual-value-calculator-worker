@@ -335,9 +335,10 @@ function html() {
         return;
       }
 
-      const totalDays = cycle === 'monthly'
-        ? getDaysInMonth(startDate)
-        : (getDaysDiff(startDate, endDate) || 365);
+      const intervalDays = getDaysDiff(startDate, endDate);
+      const totalDays = intervalDays > 0
+        ? intervalDays
+        : (cycle === 'monthly' ? getDaysInMonth(startDate) : 365);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
       const remainRatio = totalDays > 0 ? (leftDays / totalDays) : 0;
