@@ -34,6 +34,7 @@ function html() {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VPS 剩余价值计算器</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root {
       --bg: #0b1020;
@@ -57,14 +58,14 @@ function html() {
         linear-gradient(160deg, #0b1020 0%, #111933 45%, #0a1228 100%);
       display: grid;
       place-items: center;
-      padding: 24px;
+      padding: 30px;
     }
     .wrap {
       width: 100%;
-      max-width: 980px;
+      max-width: 1200px;
       display: grid;
       grid-template-columns: 1.15fr .85fr;
-      gap: 18px;
+      gap: 22px;
     }
     .card {
       background: var(--panel);
@@ -74,17 +75,17 @@ function html() {
       -webkit-backdrop-filter: blur(12px);
       box-shadow: 0 20px 60px rgba(0,0,0,.35);
     }
-    .left { padding: 22px; }
-    .right { padding: 22px; }
+    .left { padding: 30px; }
+    .right { padding: 30px; }
     h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
+      margin: 0 0 10px;
+      font-size: 34px;
       letter-spacing: .2px;
       background: linear-gradient(90deg, #d9e1ff, #9be5ff 60%, #cabfff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
-    .sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    .sub { margin: 0 0 22px; color: var(--muted); font-size: 16px; }
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -92,15 +93,15 @@ function html() {
     }
     .field { display: flex; flex-direction: column; gap: 6px; }
     .field.full { grid-column: 1 / -1; }
-    label { color: var(--muted); font-size: 13px; }
+    label { color: var(--muted); font-size: 14px; }
     input, select {
       width: 100%;
       border: 1px solid var(--line);
       background: rgba(11,16,32,.5);
       color: var(--text);
-      border-radius: 12px;
-      padding: 11px 12px;
-      font-size: 14px;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-size: 16px;
       outline: none;
     }
     input:focus, select:focus { border-color: #7fdfff; box-shadow: 0 0 0 3px rgba(127,223,255,.18); }
@@ -113,10 +114,11 @@ function html() {
     button {
       border: none;
       border-radius: 12px;
-      padding: 11px 16px;
+      padding: 12px 18px;
       color: #fff;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 15px;
       background: linear-gradient(135deg, var(--brand), var(--brand2));
       box-shadow: 0 8px 24px rgba(88,133,255,.35);
     }
@@ -135,9 +137,9 @@ function html() {
       padding: 14px;
       background: rgba(11,16,32,.4);
     }
-    .kpi .name { color: var(--muted); font-size: 12px; }
-    .kpi .value { margin-top: 6px; font-size: 28px; font-weight: 700; }
-    .kpi .hint { margin-top: 4px; font-size: 12px; color: var(--muted); }
+    .kpi .name { color: var(--muted); font-size: 13px; }
+    .kpi .value { margin-top: 8px; font-size: 34px; font-weight: 800; }
+    .kpi .hint { margin-top: 6px; font-size: 13px; color: var(--muted); }
     .ok { color: var(--ok); }
     .meta {
       margin-top: 10px;
@@ -148,8 +150,17 @@ function html() {
       padding-top: 10px;
     }
     @media (max-width: 860px) {
-      .wrap { grid-template-columns: 1fr; }
-      h1 { font-size: 24px; }
+      body { padding: 12px; }
+      .wrap { grid-template-columns: 1fr; gap: 12px; }
+      .left, .right { padding: 16px; }
+      h1 { font-size: 26px; }
+      .sub { font-size: 14px; margin-bottom: 14px; }
+      .grid { grid-template-columns: 1fr; gap: 10px; }
+      input, select { font-size: 16px; padding: 12px; }
+      .actions { display: grid; grid-template-columns: 1fr 1fr; }
+      button { width: 100%; padding: 12px; font-size: 14px; }
+      .kpi .value { font-size: 30px; }
+      .meta { font-size: 12px; }
     }
   </style>
 </head>
@@ -161,13 +172,13 @@ function html() {
       <div class="grid">
         <div class="field">
           <label>总价（原币种）</label>
-          <input id="price" type="number" min="0" step="0.01" value="120" />
+          <input id="price" type="number" min="0" step="0.01" value="0" />
         </div>
         <div class="field">
           <label>计费周期</label>
           <select id="cycle">
-            <option value="monthly">月付（按30天）</option>
-            <option value="yearly" selected>年付（按365天）</option>
+            <option value="monthly" selected>月付（按30天）</option>
+            <option value="yearly">年付（按365天）</option>
           </select>
         </div>
 
@@ -201,6 +212,8 @@ function html() {
       <div class="actions">
         <button id="calc">计算剩余价值</button>
         <button class="ghost" id="fill">填充示例</button>
+        <button class="ghost" id="exportPng">导出结果PNG</button>
+        <button class="ghost" id="copyMd">复制Markdown图片语法</button>
       </div>
     </section>
 
@@ -228,6 +241,7 @@ function html() {
 
   <script>
     const $ = (id) => document.getElementById(id);
+    let lastExportDataUrl = '';
 
     function getDaysDiff(a, b) {
       const ms = new Date(b).setHours(0,0,0,0) - new Date(a).setHours(0,0,0,0);
@@ -251,8 +265,8 @@ function html() {
       const endDate = $("endDate").value;
       const note = $("note").value.trim();
 
-      if (!price || !startDate || !endDate) {
-        alert('请先填写总价、开始日期、到期日期');
+      if (Number.isNaN(price) || price < 0 || !startDate || !endDate) {
+        alert('请先填写有效总价、开始日期、到期日期');
         return;
       }
 
@@ -294,16 +308,47 @@ function html() {
       $("from").value = 'USD';
       $("to").value = 'CNY';
       $("note").value = '示例：1年套餐';
+      calculate();
+    }
+
+    async function exportPng() {
+      const target = document.querySelector('.right');
+      if (!window.html2canvas || !target) {
+        alert('导出组件加载失败，请刷新后重试');
+        return;
+      }
+      const canvas = await window.html2canvas(target, {
+        backgroundColor: null,
+        scale: window.devicePixelRatio > 1 ? 2 : 1.5
+      });
+      lastExportDataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = lastExportDataUrl;
+      a.download = 'vps-value-result.png';
+      a.click();
+    }
+
+    async function copyMarkdown() {
+      if (!lastExportDataUrl) {
+        await exportPng();
+      }
+      const md = '![vps-value-result](' + lastExportDataUrl + ')';
+      await navigator.clipboard.writeText(md);
+      alert('Markdown 图片语法已复制');
     }
 
     $("calc").addEventListener('click', calculate);
     $("fill").addEventListener('click', fillExample);
+    $("exportPng").addEventListener('click', exportPng);
+    $("copyMd").addEventListener('click', copyMarkdown);
 
     (function init() {
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
       const fmt = d => d.toISOString().slice(0,10);
+      $("price").value = 0;
+      $("cycle").value = 'monthly';
       $("startDate").value = fmt(start);
       $("endDate").value = fmt(end);
       calculate();
