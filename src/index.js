@@ -246,7 +246,9 @@ function html() {
 
     function getDaysDiff(a, b) {
       const ms = new Date(b).setHours(0,0,0,0) - new Date(a).setHours(0,0,0,0);
-      return Math.max(0, Math.ceil(ms / 86400000));
+      if (ms < 0) return 0;
+      // 按“含到期日”口径计算天数
+      return Math.floor(ms / 86400000) + 1;
     }
 
     function getDaysInMonth(dateStr) {
