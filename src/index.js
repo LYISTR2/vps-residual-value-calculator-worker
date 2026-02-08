@@ -232,7 +232,7 @@ function html() {
         </div>
       </div>
       <div class="kpi" style="margin-top:12px;">
-        <div class="name">人民币 / 美元 比率（最近14天）</div>
+        <div class="name">人民币 / 美元 比率（最近7天）</div>
         <svg id="fxChart" viewBox="0 0 300 120" style="width:100%;height:auto;margin-top:8px;"></svg>
         <div class="hint" id="fxChartHint">加载中...</div>
       </div>
@@ -291,13 +291,13 @@ function html() {
         '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#8b7bff"/><stop offset="100%" stop-color="#43d1ff"/></linearGradient></defs>' +
         '<path d="' + d + '" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>';
 
-      hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 USD -> CNY）';
+      hint.textContent = '近7天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 USD -> CNY）';
     }
 
     async function renderFxChart() {
       const svg = $("fxChart");
       const hint = $("fxChartHint");
-      const key = 'USD->CNY:14';
+      const key = 'USD->CNY:7';
       const now = Date.now();
       if (chartCache.key === key && chartCache.points && (now - chartCache.ts) < 5 * 60 * 1000) {
         drawFxChart(chartCache.points);
@@ -307,7 +307,7 @@ function html() {
       svg.innerHTML = '';
       hint.textContent = '加载中...';
       try {
-        const res = await fetch('/api/rate-history?from=USD&to=CNY&days=14');
+        const res = await fetch('/api/rate-history?from=USD&to=CNY&days=7');
         const data = await res.json();
         if (!res.ok || !data.ok || !data.points || data.points.length < 2) {
           hint.textContent = '暂无走势图数据';
@@ -409,10 +409,11 @@ export default {
     if (url.pathname === '/api/rate-history') {
       const from = (url.searchParams.get('from') || 'USD').toUpperCase();
       const to = (url.searchParams.get('to') || 'CNY').toUpperCase();
-      const days = Math.max(3, Math.min(30, Number(url.searchParams.get('days') || 14)));
+      const days = Math.max(3, Math.min(30, Number(url.searchParams.get('days') || 7)));
       try {
-        const end = new Date();
-        const start = new Date(Date.now() - (days - 1) * 86400000);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const end = new Date(todayStr + 'T00:00:00Z');
+        const start = new Date(end.getTime() - (days - 1) * 86400000);
         const fmt = (d) => d.toISOString().slice(0, 10);
         const api = 'https://api.frankfurter.app/' + fmt(start) + '..' + fmt(end) + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
         const res = await fetch(api, { cf: { cacheTtl: 3600, cacheEverything: true } });
@@ -420,9 +421,11 @@ export default {
         const data = await res.json();
         const rates = data && data.rates ? data.rates : {};
         const points = Object.keys(rates)
+          .filter((date) => date <= todayStr)
           .sort()
           .map((date) => ({ date, rate: rates[date] && rates[date][to] }))
-          .filter((x) => typeof x.rate === 'number');
+          .filter((x) => typeof x.rate === 'number')
+          .slice(-days);
         return json({ ok: true, from, to, points });
       } catch (e) {
         return json({ ok: false, error: e.message || '历史汇率获取失败' }, 500);

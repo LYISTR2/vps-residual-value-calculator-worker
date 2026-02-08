@@ -4,7 +4,7 @@
 - 计算 VPS 套餐剩余价值（按剩余天数）
 - 支持月付 / 年付
 - 支持实时汇率换算（USD/CNY/HKD/EUR/JPY/SGD）
-- 支持近14天人民币/美元汇率走势图
+- 支持近7天人民币/美元汇率走势图
 - 现代化深色玻璃拟态 UI（增强版，移动端适配）
 
 ---
@@ -45,12 +45,12 @@
 
 并在 Worker 端做了内存缓存（10分钟）以减少重复请求。
 
-### 3) 汇率走势图（14天）
+### 3) 汇率走势图（7天）
 
 通过 Worker 后端接口 `/api/rate-history` 获取近14天数据（上游：`frankfurter.app`），前端 SVG 绘制曲线。
 
-- 页面固定展示 **USD->CNY**（人民币/美元）14天趋势
-- `GET /api/rate-history?from=USD&to=CNY&days=14`
+- 页面固定展示 **USD->CNY**（人民币/美元）7天趋势（当日回溯7天，不包含未来日期）
+- `GET /api/rate-history?from=USD&to=CNY&days=7`
 - 返回 `{ ok, from, to, points: [{ date, rate }] }`
 
 ---
