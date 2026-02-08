@@ -247,10 +247,20 @@ function html() {
 
   <script>
     const $ = (id) => document.getElementById(id);
+    let chartCache = { key: '', ts: 0, points: null, from: '', to: '' };
 
     function getDaysDiff(a, b) {
       const ms = new Date(b).setHours(0,0,0,0) - new Date(a).setHours(0,0,0,0);
       return Math.max(0, Math.ceil(ms / 86400000));
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     async function getRate(from, to) {
@@ -261,9 +271,37 @@ function html() {
       return data.rate;
     }
 
+    function drawFxChart(points, from, to) {
+      const svg = $("fxChart");
+      const hint = $("fxChartHint");
+      const rates = points.map((p) => p.rate);
+      const min = Math.min.apply(null, rates);
+      const max = Math.max.apply(null, rates);
+      const pad = (max - min) * 0.2 || 0.01;
+      const ymin = min - pad;
+      const ymax = max + pad;
+      const w = 300, h = 120;
+      const x = (i) => (i / (points.length - 1)) * (w - 20) + 10;
+      const y = (v) => h - ((v - ymin) / (ymax - ymin)) * (h - 20) - 10;
+      const d = points.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ' ' + y(p.rate).toFixed(2)).join(' ');
+
+      svg.innerHTML =
+        '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#8b7bff"/><stop offset="100%" stop-color="#43d1ff"/></linearGradient></defs>' +
+        '<path d="' + d + '" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>';
+
+      hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 ' + from + ' -> ' + to + '）';
+    }
+
     async function renderFxChart(from, to) {
       const svg = $("fxChart");
       const hint = $("fxChartHint");
+      const key = from + '->' + to + ':14';
+      const now = Date.now();
+      if (chartCache.key === key && chartCache.points && (now - chartCache.ts) < 5 * 60 * 1000) {
+        drawFxChart(chartCache.points, from, to);
+        return;
+      }
+
       svg.innerHTML = '';
       hint.textContent = '加载中...';
       try {
@@ -274,22 +312,8 @@ function html() {
           return;
         }
         const points = data.points;
-        const rates = points.map((p) => p.rate);
-        const min = Math.min.apply(null, rates);
-        const max = Math.max.apply(null, rates);
-        const pad = (max - min) * 0.2 || 0.01;
-        const ymin = min - pad;
-        const ymax = max + pad;
-        const w = 300, h = 120;
-        const x = (i) => (i / (points.length - 1)) * (w - 20) + 10;
-        const y = (v) => h - ((v - ymin) / (ymax - ymin)) * (h - 20) - 10;
-        const d = points.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ' ' + y(p.rate).toFixed(2)).join(' ');
-
-        svg.innerHTML =
-          '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#8b7bff"/><stop offset="100%" stop-color="#43d1ff"/></linearGradient></defs>' +
-          '<path d="' + d + '" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>';
-
-        hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 ' + from + ' -> ' + to + '）';
+        chartCache = { key, ts: now, points, from, to };
+        drawFxChart(points, from, to);
       } catch (e) {
         hint.textContent = '走势图加载失败';
       }
@@ -321,6 +345,7 @@ function html() {
       $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
       $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%，折价率 ' + (dRate * 100).toFixed(1) + '%';
 
+      const chartTask = renderFxChart(from, to);
       try {
         const rate = await getRate(from, to);
         const converted = valueFrom * rate;
@@ -334,9 +359,9 @@ function html() {
       $("meta").innerHTML =
         '<div>周期：' + (cycle === 'yearly' ? '年付' : '月付') + '</div>' +
         '<div>区间：' + startDate + ' ~ ' + endDate + '</div>' +
-        (note ? ('<div>备注：' + note + '</div>') : '');
+        (note ? ('<div>备注：' + escapeHtml(note) + '</div>') : '');
 
-      renderFxChart(from, to);
+      await chartTask;
     }
 
     $("calc").addEventListener('click', calculate);
