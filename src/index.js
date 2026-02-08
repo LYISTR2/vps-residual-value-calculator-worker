@@ -34,7 +34,6 @@ function html() {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VPS 剩余价值计算器</title>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     :root {
       --bg: #0b1020;
@@ -194,13 +193,13 @@ function html() {
         <div class="field">
           <label>原币种</label>
           <select id="from">
-            <option>USD</option><option>EUR</option><option>HKD</option><option>CNY</option><option>JPY</option><option>SGD</option>
+            <option selected>USD</option><option>EUR</option><option>HKD</option><option>CNY</option><option>JPY</option><option>SGD</option>
           </select>
         </div>
         <div class="field">
           <label>目标币种</label>
           <select id="to">
-            <option selected>CNY</option><option>USD</option><option>HKD</option><option>EUR</option><option>JPY</option><option>SGD</option>
+            <option selected>USD</option><option>CNY</option><option>HKD</option><option>EUR</option><option>JPY</option><option>SGD</option>
           </select>
         </div>
 
@@ -211,9 +210,6 @@ function html() {
       </div>
       <div class="actions">
         <button id="calc">计算剩余价值</button>
-        <button class="ghost" id="fill">填充示例</button>
-        <button class="ghost" id="exportPng">导出结果PNG</button>
-        <button class="ghost" id="copyMd">复制Markdown图片语法</button>
       </div>
     </section>
 
@@ -241,7 +237,6 @@ function html() {
 
   <script>
     const $ = (id) => document.getElementById(id);
-    let lastExportDataUrl = '';
 
     function getDaysDiff(a, b) {
       const ms = new Date(b).setHours(0,0,0,0) - new Date(a).setHours(0,0,0,0);
@@ -296,51 +291,7 @@ function html() {
         (note ? ('<div>备注：' + note + '</div>') : '');
     }
 
-    function fillExample() {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-      const end = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-      const fmt = d => d.toISOString().slice(0,10);
-      $("price").value = 120;
-      $("cycle").value = 'yearly';
-      $("startDate").value = fmt(start);
-      $("endDate").value = fmt(end);
-      $("from").value = 'USD';
-      $("to").value = 'CNY';
-      $("note").value = '示例：1年套餐';
-      calculate();
-    }
-
-    async function exportPng() {
-      const target = document.querySelector('.right');
-      if (!window.html2canvas || !target) {
-        alert('导出组件加载失败，请刷新后重试');
-        return;
-      }
-      const canvas = await window.html2canvas(target, {
-        backgroundColor: null,
-        scale: window.devicePixelRatio > 1 ? 2 : 1.5
-      });
-      lastExportDataUrl = canvas.toDataURL('image/png');
-      const a = document.createElement('a');
-      a.href = lastExportDataUrl;
-      a.download = 'vps-value-result.png';
-      a.click();
-    }
-
-    async function copyMarkdown() {
-      if (!lastExportDataUrl) {
-        await exportPng();
-      }
-      const md = '![vps-value-result](' + lastExportDataUrl + ')';
-      await navigator.clipboard.writeText(md);
-      alert('Markdown 图片语法已复制');
-    }
-
     $("calc").addEventListener('click', calculate);
-    $("fill").addEventListener('click', fillExample);
-    $("exportPng").addEventListener('click', exportPng);
-    $("copyMd").addEventListener('click', copyMarkdown);
 
     (function init() {
       const now = new Date();
