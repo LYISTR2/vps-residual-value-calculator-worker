@@ -249,6 +249,13 @@ function html() {
       return Math.max(0, Math.ceil(ms / 86400000));
     }
 
+    function getDaysInMonth(dateStr) {
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      return new Date(y, m + 1, 0).getDate();
+    }
+
     function escapeHtml(text) {
       return String(text)
         .replace(/&/g, '&amp;')
@@ -328,7 +335,9 @@ function html() {
         return;
       }
 
-      const totalDays = getDaysDiff(startDate, endDate) || (cycle === 'yearly' ? 365 : 30);
+      const totalDays = cycle === 'monthly'
+        ? getDaysInMonth(startDate)
+        : (getDaysDiff(startDate, endDate) || 365);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
       const remainRatio = Math.max(0, Math.min(1, leftDays / totalDays));
