@@ -3,9 +3,8 @@
 一个可直接部署到 **Cloudflare Workers** 的单文件应用：
 - 计算 VPS 套餐剩余价值（按剩余天数）
 - 支持月付 / 年付
-- 支持折价率（按转让折损计算最终残值）
 - 支持实时汇率换算（USD/CNY/HKD/EUR/JPY/SGD）
-- 支持近14天汇率走势图
+- 支持近14天人民币/美元汇率走势图
 - 现代化深色玻璃拟态 UI（增强版，移动端适配）
 
 ---
@@ -50,6 +49,7 @@
 
 通过 Worker 后端接口 `/api/rate-history` 获取近14天数据（上游：`frankfurter.app`），前端 SVG 绘制曲线。
 
+- 页面固定展示 **USD->CNY**（人民币/美元）14天趋势
 - `GET /api/rate-history?from=USD&to=CNY&days=14`
 - 返回 `{ ok, from, to, points: [{ date, rate }] }`
 

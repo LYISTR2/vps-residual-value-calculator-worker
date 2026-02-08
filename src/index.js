@@ -67,12 +67,12 @@ function html() {
       gap: 22px;
     }
     .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 22px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 24px 70px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.15);
     }
     .left { padding: 30px; }
     .right { padding: 30px; }
@@ -131,10 +131,10 @@ function html() {
       gap: 12px;
     }
     .kpi {
-      border: 1px solid var(--line);
-      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 16px;
       padding: 14px;
-      background: rgba(11,16,32,.4);
+      background: linear-gradient(180deg, rgba(11,16,32,.55), rgba(11,16,32,.35));
     }
     .kpi .name { color: var(--muted); font-size: 13px; }
     .kpi .value { margin-top: 8px; font-size: 34px; font-weight: 800; }
@@ -203,11 +203,6 @@ function html() {
           </select>
         </div>
 
-        <div class="field">
-          <label>折价率（%）</label>
-          <input id="discount" type="number" min="0" max="100" step="0.1" value="100" />
-        </div>
-
         <div class="field full">
           <label>备注（可选）</label>
           <input id="note" type="text" placeholder="例如：RackNerd 2C2G，东京机房" />
@@ -237,7 +232,7 @@ function html() {
         </div>
       </div>
       <div class="kpi" style="margin-top:12px;">
-        <div class="name">汇率走势图（最近14天）</div>
+        <div class="name">人民币 / 美元 比率（最近14天）</div>
         <svg id="fxChart" viewBox="0 0 300 120" style="width:100%;height:auto;margin-top:8px;"></svg>
         <div class="hint" id="fxChartHint">加载中...</div>
       </div>
@@ -271,7 +266,7 @@ function html() {
       return data.rate;
     }
 
-    function drawFxChart(points, from, to) {
+    function drawFxChart(points) {
       const svg = $("fxChart");
       const hint = $("fxChartHint");
       const rates = points.map((p) => p.rate);
@@ -289,31 +284,31 @@ function html() {
         '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#8b7bff"/><stop offset="100%" stop-color="#43d1ff"/></linearGradient></defs>' +
         '<path d="' + d + '" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>';
 
-      hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 ' + from + ' -> ' + to + '）';
+      hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 USD -> CNY）';
     }
 
-    async function renderFxChart(from, to) {
+    async function renderFxChart() {
       const svg = $("fxChart");
       const hint = $("fxChartHint");
-      const key = from + '->' + to + ':14';
+      const key = 'USD->CNY:14';
       const now = Date.now();
       if (chartCache.key === key && chartCache.points && (now - chartCache.ts) < 5 * 60 * 1000) {
-        drawFxChart(chartCache.points, from, to);
+        drawFxChart(chartCache.points);
         return;
       }
 
       svg.innerHTML = '';
       hint.textContent = '加载中...';
       try {
-        const res = await fetch('/api/rate-history?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&days=14');
+        const res = await fetch('/api/rate-history?from=USD&to=CNY&days=14');
         const data = await res.json();
         if (!res.ok || !data.ok || !data.points || data.points.length < 2) {
           hint.textContent = '暂无走势图数据';
           return;
         }
         const points = data.points;
-        chartCache = { key, ts: now, points, from, to };
-        drawFxChart(points, from, to);
+        chartCache = { key, ts: now, points, from: 'USD', to: 'CNY' };
+        drawFxChart(points);
       } catch (e) {
         hint.textContent = '走势图加载失败';
       }
@@ -324,7 +319,6 @@ function html() {
       const cycle = $("cycle").value;
       const from = $("from").value;
       const to = $("to").value;
-      const discount = Number($("discount").value || 100);
       const startDate = $("startDate").value;
       const endDate = $("endDate").value;
       const note = $("note").value.trim();
@@ -334,23 +328,22 @@ function html() {
         return;
       }
 
-      const dRate = Math.max(0, Math.min(100, discount)) / 100;
       const totalDays = getDaysDiff(startDate, endDate) || (cycle === 'yearly' ? 365 : 30);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
       const remainRatio = Math.max(0, Math.min(1, leftDays / totalDays));
-      const valueFrom = price * remainRatio * dRate;
+      const valueFrom = price * remainRatio;
 
       $("daysLeft").textContent = leftDays.toString();
       $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
-      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%，折价率 ' + (dRate * 100).toFixed(1) + '%';
+      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + leftDays + '/' + totalDays + ' 天）';
 
-      const chartTask = renderFxChart(from, to);
+      const chartTask = renderFxChart();
       try {
         const rate = await getRate(from, to);
         const converted = valueFrom * rate;
         $("valueTo").textContent = converted.toFixed(2) + ' ' + to;
-        $("fxHint").textContent = '1 ' + from + ' = ' + rate.toFixed(6) + ' ' + to;
+        $("fxHint").textContent = (from === to) ? '' : ('1 ' + from + ' = ' + rate.toFixed(6) + ' ' + to);
       } catch (e) {
         $("valueTo").textContent = '--';
         $("fxHint").textContent = '汇率失败：' + (e && e.message ? e.message : '未知错误');
@@ -375,7 +368,6 @@ function html() {
       const fmt = d => d.toISOString().slice(0,10);
       $("price").value = 0;
       $("cycle").value = 'monthly';
-      $("discount").value = 100;
       $("startDate").value = fmt(start);
       $("endDate").value = fmt(end);
       calculate();
