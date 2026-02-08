@@ -236,7 +236,7 @@ function html() {
 
     async function getRate(from, to) {
       if (from === to) return 1;
-      const res = await fetch(`/api/rate?from=${from}&to=${to}`);
+      const res = await fetch('/api/rate?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to));
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || '汇率获取失败');
       return data.rate;
@@ -263,24 +263,23 @@ function html() {
       const valueFrom = price * remainRatio;
 
       $("daysLeft").textContent = leftDays.toString();
-      $("valueFrom").textContent = `${valueFrom.toFixed(2)} ${from}`;
-      $("ratioHint").textContent = `剩余比例 ${(remainRatio * 100).toFixed(2)}%（${leftDays}/${totalDays} 天）`;
+      $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
+      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + leftDays + '/' + totalDays + ' 天）';
 
       try {
         const rate = await getRate(from, to);
         const converted = valueFrom * rate;
-        $("valueTo").textContent = `${converted.toFixed(2)} ${to}`;
-        $("fxHint").textContent = `1 ${from} = ${rate.toFixed(6)} ${to}`;
+        $("valueTo").textContent = converted.toFixed(2) + ' ' + to;
+        $("fxHint").textContent = '1 ' + from + ' = ' + rate.toFixed(6) + ' ' + to;
       } catch (e) {
         $("valueTo").textContent = '--';
-        $("fxHint").textContent = `汇率失败：${e.message}`;
+        $("fxHint").textContent = '汇率失败：' + (e && e.message ? e.message : '未知错误');
       }
 
-      $("meta").innerHTML = `
-        <div>周期：${cycle === 'yearly' ? '年付' : '月付'}</div>
-        <div>区间：${startDate} ~ ${endDate}</div>
-        ${note ? `<div>备注：${note}</div>` : ''}
-      `;
+      $("meta").innerHTML =
+        '<div>周期：' + (cycle === 'yearly' ? '年付' : '月付') + '</div>' +
+        '<div>区间：' + startDate + ' ~ ' + endDate + '</div>' +
+        (note ? ('<div>备注：' + note + '</div>') : '');
     }
 
     function fillExample() {
