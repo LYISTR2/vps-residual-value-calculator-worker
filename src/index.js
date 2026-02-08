@@ -340,13 +340,12 @@ function html() {
         : (getDaysDiff(startDate, endDate) || 365);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
-      const effectiveLeftDays = Math.min(leftDays, totalDays);
-      const remainRatio = Math.max(0, Math.min(1, effectiveLeftDays / totalDays));
-      const valueFrom = price * remainRatio;
+      const remainRatio = totalDays > 0 ? (leftDays / totalDays) : 0;
+      const valueFrom = price * Math.max(0, remainRatio);
 
       $("daysLeft").textContent = leftDays.toString();
       $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
-      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + effectiveLeftDays + '/' + totalDays + ' 天）' + (leftDays > totalDays ? '，超出周期按100%封顶' : '');
+      $("ratioHint").textContent = '剩余比例 ' + (Math.max(0, remainRatio) * 100).toFixed(2) + '%（' + leftDays + '/' + totalDays + ' 天）';
 
       const chartTask = renderFxChart();
       try {
