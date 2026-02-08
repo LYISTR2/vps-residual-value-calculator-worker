@@ -203,6 +203,11 @@ function html() {
           </select>
         </div>
 
+        <div class="field">
+          <label>折价率（%）</label>
+          <input id="discount" type="number" min="0" max="100" step="0.1" value="100" />
+        </div>
+
         <div class="field full">
           <label>备注（可选）</label>
           <input id="note" type="text" placeholder="例如：RackNerd 2C2G，东京机房" />
@@ -231,6 +236,11 @@ function html() {
           <div class="hint" id="fxHint">实时汇率加载中...</div>
         </div>
       </div>
+      <div class="kpi" style="margin-top:12px;">
+        <div class="name">汇率走势图（最近14天）</div>
+        <svg id="fxChart" viewBox="0 0 300 120" style="width:100%;height:auto;margin-top:8px;"></svg>
+        <div class="hint" id="fxChartHint">加载中...</div>
+      </div>
       <div class="meta" id="meta"></div>
     </aside>
   </main>
@@ -251,11 +261,46 @@ function html() {
       return data.rate;
     }
 
+    async function renderFxChart(from, to) {
+      const svg = $("fxChart");
+      const hint = $("fxChartHint");
+      svg.innerHTML = '';
+      hint.textContent = '加载中...';
+      try {
+        const res = await fetch('/api/rate-history?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&days=14');
+        const data = await res.json();
+        if (!res.ok || !data.ok || !data.points || data.points.length < 2) {
+          hint.textContent = '暂无走势图数据';
+          return;
+        }
+        const points = data.points;
+        const rates = points.map((p) => p.rate);
+        const min = Math.min.apply(null, rates);
+        const max = Math.max.apply(null, rates);
+        const pad = (max - min) * 0.2 || 0.01;
+        const ymin = min - pad;
+        const ymax = max + pad;
+        const w = 300, h = 120;
+        const x = (i) => (i / (points.length - 1)) * (w - 20) + 10;
+        const y = (v) => h - ((v - ymin) / (ymax - ymin)) * (h - 20) - 10;
+        const d = points.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ' ' + y(p.rate).toFixed(2)).join(' ');
+
+        svg.innerHTML =
+          '<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#8b7bff"/><stop offset="100%" stop-color="#43d1ff"/></linearGradient></defs>' +
+          '<path d="' + d + '" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round"/>';
+
+        hint.textContent = '近14天: 最低 ' + min.toFixed(4) + ' · 最高 ' + max.toFixed(4) + '（1 ' + from + ' -> ' + to + '）';
+      } catch (e) {
+        hint.textContent = '走势图加载失败';
+      }
+    }
+
     async function calculate() {
       const price = Number($("price").value || 0);
       const cycle = $("cycle").value;
       const from = $("from").value;
       const to = $("to").value;
+      const discount = Number($("discount").value || 100);
       const startDate = $("startDate").value;
       const endDate = $("endDate").value;
       const note = $("note").value.trim();
@@ -265,15 +310,16 @@ function html() {
         return;
       }
 
+      const dRate = Math.max(0, Math.min(100, discount)) / 100;
       const totalDays = getDaysDiff(startDate, endDate) || (cycle === 'yearly' ? 365 : 30);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
       const remainRatio = Math.max(0, Math.min(1, leftDays / totalDays));
-      const valueFrom = price * remainRatio;
+      const valueFrom = price * remainRatio * dRate;
 
       $("daysLeft").textContent = leftDays.toString();
       $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
-      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + leftDays + '/' + totalDays + ' 天）';
+      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%，折价率 ' + (dRate * 100).toFixed(1) + '%';
 
       try {
         const rate = await getRate(from, to);
@@ -289,9 +335,13 @@ function html() {
         '<div>周期：' + (cycle === 'yearly' ? '年付' : '月付') + '</div>' +
         '<div>区间：' + startDate + ' ~ ' + endDate + '</div>' +
         (note ? ('<div>备注：' + note + '</div>') : '');
+
+      renderFxChart(from, to);
     }
 
     $("calc").addEventListener('click', calculate);
+    $("from").addEventListener('change', calculate);
+    $("to").addEventListener('change', calculate);
 
     (function init() {
       const now = new Date();
@@ -300,6 +350,7 @@ function html() {
       const fmt = d => d.toISOString().slice(0,10);
       $("price").value = 0;
       $("cycle").value = 'monthly';
+      $("discount").value = 100;
       $("startDate").value = fmt(start);
       $("endDate").value = fmt(end);
       calculate();
@@ -325,6 +376,29 @@ export default {
         return json({ ok: true, from, to, rate });
       } catch (e) {
         return json({ ok: false, error: e.message || '汇率获取失败' }, 500);
+      }
+    }
+
+    if (url.pathname === '/api/rate-history') {
+      const from = (url.searchParams.get('from') || 'USD').toUpperCase();
+      const to = (url.searchParams.get('to') || 'CNY').toUpperCase();
+      const days = Math.max(3, Math.min(30, Number(url.searchParams.get('days') || 14)));
+      try {
+        const end = new Date();
+        const start = new Date(Date.now() - (days - 1) * 86400000);
+        const fmt = (d) => d.toISOString().slice(0, 10);
+        const api = 'https://api.frankfurter.app/' + fmt(start) + '..' + fmt(end) + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
+        const res = await fetch(api, { cf: { cacheTtl: 3600, cacheEverything: true } });
+        if (!res.ok) throw new Error('历史汇率接口失败: ' + res.status);
+        const data = await res.json();
+        const rates = data && data.rates ? data.rates : {};
+        const points = Object.keys(rates)
+          .sort()
+          .map((date) => ({ date, rate: rates[date] && rates[date][to] }))
+          .filter((x) => typeof x.rate === 'number');
+        return json({ ok: true, from, to, points });
+      } catch (e) {
+        return json({ ok: false, error: e.message || '历史汇率获取失败' }, 500);
       }
     }
 
