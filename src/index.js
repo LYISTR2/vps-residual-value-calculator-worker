@@ -176,8 +176,8 @@ function html() {
         <div class="field">
           <label>计费周期</label>
           <select id="cycle">
-            <option value="monthly" selected>月付（按30天）</option>
-            <option value="yearly">年付（按365天）</option>
+            <option value="monthly" selected>月付（按当月天数）</option>
+            <option value="yearly">年付（按区间天数）</option>
           </select>
         </div>
 
@@ -340,12 +340,13 @@ function html() {
         : (getDaysDiff(startDate, endDate) || 365);
       const today = new Date().toISOString().slice(0, 10);
       const leftDays = getDaysDiff(today, endDate);
-      const remainRatio = Math.max(0, Math.min(1, leftDays / totalDays));
+      const effectiveLeftDays = Math.min(leftDays, totalDays);
+      const remainRatio = Math.max(0, Math.min(1, effectiveLeftDays / totalDays));
       const valueFrom = price * remainRatio;
 
       $("daysLeft").textContent = leftDays.toString();
       $("valueFrom").textContent = valueFrom.toFixed(2) + ' ' + from;
-      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + leftDays + '/' + totalDays + ' 天）';
+      $("ratioHint").textContent = '剩余比例 ' + (remainRatio * 100).toFixed(2) + '%（' + effectiveLeftDays + '/' + totalDays + ' 天）' + (leftDays > totalDays ? '，超出周期按100%封顶' : '');
 
       const chartTask = renderFxChart();
       try {
